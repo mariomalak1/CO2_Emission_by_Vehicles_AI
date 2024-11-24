@@ -87,83 +87,69 @@ x_train.max()
 
 """Implement linear regression using gradient descent from scratch"""
 
-def compute_gradient(X, y, w, b):
-    m = X.shape[0]
-    predictions = numpy.dot(X, w) + b
-    error = predictions - y
-    dj_dw = numpy.dot(X.T, error) / m
-    dj_db = numpy.sum(error) / m
-    return dj_db, dj_dw
+def calculate_gradient(inputs, targets, weights, bias):
+    num_samples = inputs.shape[0]
+    predictions = numpy.dot(inputs, weights) + bias
+    error = predictions - targets
+    grad_weights = numpy.dot(inputs.T, error) / num_samples
+    grad_bias = numpy.sum(error) / num_samples
+    return grad_bias, grad_weights
 
-x_train_selected = x_train[:, [9, 3]]
-y_train_co2 = y_co2_train.values
-y_train_co2 = y_train_co2.reshape(-1)
+selected_features = x_train[:, [9, 3]]  # Selecting columns 9 and 3 engine size and fuel consumption
+target_co2 = y_co2_train.values.reshape(-1) 
+initial_bias = 0  
+initial_weights = numpy.zeros(2)
 
-b = 0
-w_init = numpy.zeros(2)
+def calculate_cost(inputs, targets, weights, bias):
+    num_samples = inputs.shape[0]
+    predictions = numpy.dot(inputs, weights) + bias
+    error = predictions - targets
+    cost_value = numpy.sum(error ** 2) / (2 * num_samples)
+    return cost_value
 
-def compute_cost(X, y, w, b):
-    m = X.shape[0]
-    predictions = numpy.dot(X, w) + b
-    error = predictions - y
-    cost = numpy.sum(error**2) / (2 * m)
+def optimize_weights(inputs, targets, weights_start, bias_start, cost_func, gradient_func, learning_rate, iterations):
+    bias = bias_start
+    weights = copy.deepcopy(weights_start)
+    cost_record = []
+    for step in range(iterations):
+        grad_bias, grad_weights = gradient_func(inputs, targets, weights, bias)
 
-    return cost
+        weights -= learning_rate * grad_weights
+        bias -= learning_rate * grad_bias
 
-def gradient_descent(X, y, w_in, b_in, cost_function, gradient_function, alpha, num_iters):
-    Cost_history = []  # List to store cost history
-    w = copy.deepcopy(w_in)  # Copy of initial weights
-    b = b_in                 # Initialize bias
+        if step < 1000:  
+            cost_record.append(cost_func(inputs, targets, weights, bias))
 
-    for i in range(num_iters):
-        # Compute gradients
-        dj_db, dj_dw = gradient_function(X, y, w, b)
+        if step % max(1, iterations // 10) == 0:
+            print(f"Step {step:4d}: Cost = {cost_record[-1]:.4f}")
 
-        # Use temporary variables to update w and b
-        temp_w = w - alpha * dj_dw
-        temp_b = b - alpha * dj_db
+    return weights, bias, cost_record
 
-        # Update w and b after calculating their new values
-        w = temp_w
-        b = temp_b
+learning_rate = 0.5
+max_iterations = 1000
+final_weights, final_bias, cost_history = optimize_weights(
+    selected_features, target_co2, 
+    initial_weights, initial_bias, 
+    calculate_cost, calculate_gradient, 
+    learning_rate, max_iterations
+)
 
-        # Save cost at each iteration
-        if i < 100000:
-            Cost_history.append(cost_function(X, y, w, b))
+fig, ax = plt.subplots(figsize=(12, 4))
 
-        # Print cost at intervals (10 times during training)
-        if i % math.ceil(num_iters / 10) == 0:
-            print(f"Iteration {i:4d}: Cost {Cost_history[-1]:8.2f}")
+ax.plot(cost_history, color='mediumblue', linewidth=2, marker='o', markersize=4, 
+        markerfacecolor='orange', markeredgewidth=1)
 
-    return w, b, Cost_history
-
-initial_w = w_init
-initial_b =0
-iterations=1000
-alpha= 5.0e-1
-
-# Run gradient descent
-w_final, b_final, J_hist = gradient_descent(x_train_selected, y_train_co2, initial_w, initial_b,
-                                             compute_cost, compute_gradient,
-                                             alpha, iterations)
-
-fig, ax1 = plt.subplots(figsize=(12, 4))
-
-# Plotting the first graph with color
-ax1.plot(J_hist, color='royalblue', lw=2, marker='o', markersize=4, markerfacecolor='red', markeredgewidth=1)
-
-ax1.set_title("Cost vs. iteration", fontsize=16, fontweight='bold')
-ax1.set_ylabel('Cost', fontsize=14)
-ax1.set_xlabel('Iteration step', fontsize=14)
-ax1.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.7)
+ax.set_title("Cost vs. Iteration", fontsize=16, weight='bold')
+ax.set_ylabel('Cost Value', fontsize=14)
+ax.set_xlabel('Iteration', fontsize=14)
+ax.grid(which='both', linestyle='--', linewidth=0.6, alpha=0.8)
 
 plt.tight_layout()
 plt.show()
-
 x_test_selected = x_test[:, [9, 3]]
 y_test_co2 = y_co2_test.values
 
-y_test_predictions = numpy.dot(x_test_selected, w_final) + b_final
+y_test_predictions = numpy.dot(x_test_selected, final_weights) +  final_bias
 
 r2 = r2_score(y_test_co2, y_test_predictions)
 print(f"R^2 score on the test set: {r2:.4f}")
